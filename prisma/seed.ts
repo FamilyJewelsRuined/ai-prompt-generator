@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const connectionString = process.env.DATABASE_URL!;
 const adapter = new PrismaPg({ connectionString });
@@ -9,58 +9,43 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Clean existing data
-  await prisma.post.deleteMany();
-  await prisma.user.deleteMany();
-
-  // Create users with posts
-  const alice = await prisma.user.create({
-    data: {
-      email: "alice@example.com",
-      name: "Alice Johnson",
-      posts: {
-        create: [
-          {
-            title: "Getting Started with Prisma",
-            content:
-              "Prisma makes database access easy with its intuitive API and type safety.",
-            published: true,
-          },
-          {
-            title: "Why TypeScript?",
-            content:
-              "TypeScript adds static typing to JavaScript, catching errors at compile time.",
-            published: true,
-          },
-        ],
-      },
+  const defaultModels = [
+    {
+      name: "ChatGPT",
+      description:
+        "OpenAI ChatGPT series models for general intelligence, conversation, and creative tasks.",
     },
-  });
-
-  const bob = await prisma.user.create({
-    data: {
-      email: "bob@example.com",
-      name: "Bob Smith",
-      posts: {
-        create: [
-          {
-            title: "Next.js App Router",
-            content:
-              "The App Router in Next.js provides a new way to build applications with React Server Components.",
-            published: true,
-          },
-          {
-            title: "Draft: Database Design Tips",
-            content: "Work in progress...",
-            published: false,
-          },
-        ],
-      },
+    {
+      name: "Gemini",
+      description:
+        "Google Gemini multimodal AI models for complex reasoning, coding, and context comprehension.",
     },
-  });
+    {
+      name: "Claude",
+      description:
+        "Anthropic Claude models designed for deep reasoning, nuance, and detailed instruction following.",
+    },
+    {
+      name: "Grok",
+      description:
+        "xAI Grok models specialized in real-time context processing and direct problem solving.",
+    },
+    {
+      name: "DeepSeek",
+      description:
+        "DeepSeek AI models optimized for code generation, technical architecture, and mathematical reasoning.",
+    },
+  ];
 
-  console.log(`  Created user: ${alice.name} (${alice.email})`);
-  console.log(`  Created user: ${bob.name} (${bob.email})`);
+  for (const model of defaultModels) {
+    const aiModel = await prisma.aIModel.upsert({
+      where: { name: model.name },
+      update: { description: model.description },
+      create: model,
+    });
+    console.log(`  - Seeded AI Model: ${aiModel.name} (${aiModel.id})`);
+  }
+
   console.log("✅ Seeding complete!");
 }
 
