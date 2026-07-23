@@ -65,6 +65,11 @@ export async function submitAnswersAndGetPromptData(promptId: string, answers: R
     const session = await auth();
     if (!session?.user?.id) throw new Error("Unauthorized");
 
+    // Delete existing answers for this prompt to prevent duplicates on resume
+    await prisma.promptAnswer.deleteMany({
+      where: { promptId },
+    });
+
     // Save answers
     await Promise.all(
       Object.entries(answers).map(([questionId, answer]) => 

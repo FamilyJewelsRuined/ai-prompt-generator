@@ -1,7 +1,7 @@
 import { getPromptById } from "@/lib/actions/prompt";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Clock, Tag, Cpu, MessageSquare, History, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ArrowLeft, Sparkles, Clock, Tag, Cpu, MessageSquare, History, ThumbsUp, ThumbsDown, Wand2 } from "lucide-react";
 import CopyButton from "@/components/CopyButton";
 
 export default async function PromptDetailPage({ params }: { params: Promise<{ promptId: string }> }) {
@@ -11,6 +11,8 @@ export default async function PromptDetailPage({ params }: { params: Promise<{ p
   if (!prompt) {
     notFound();
   }
+
+  const isIncomplete = prompt.status === "DRAFT" || prompt.status === "IN_PROGRESS";
 
   return (
     <div className="p-6 sm:p-8 max-w-5xl mx-auto">
@@ -57,6 +59,16 @@ export default async function PromptDetailPage({ params }: { params: Promise<{ p
               </span>
             </div>
           </div>
+
+          {isIncomplete && (
+            <Link
+              href={`/dashboard/new?resume=${prompt.id}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)] hover:opacity-90 transition-all shadow-sm hover:shadow-md whitespace-nowrap"
+            >
+              <Wand2 size={16} />
+              Continue Editing
+            </Link>
+          )}
         </div>
       </div>
 

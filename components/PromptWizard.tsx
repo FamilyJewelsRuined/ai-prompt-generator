@@ -1,27 +1,37 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, Loader2, ArrowRight, MessageSquare, Wand2, ThumbsUp, ThumbsDown, Save } from "lucide-react";
 import { useCompletion } from "@ai-sdk/react";
 import { detectIntentAndGenerateQuestions, submitAnswersAndGetPromptData, submitFeedbackAndRevise, saveFinalPrompt } from "@/lib/actions/flow";
+import type { ResumeData } from "@/app/dashboard/new/page";
 
 type WizardStage = "INPUT" | "DETECTING" | "INTERVIEW" | "GENERATING" | "REVIEW" | "SAVING";
 
-export default function PromptWizard({ models }: { models: any[] }) {
+export default function PromptWizard({ models, resumeData }: { models: any[]; resumeData?: ResumeData }) {
   const router = useRouter();
+  const hasResumed = useRef(false);
   
-  // State
-  const [stage, setStage] = useState<WizardStage>("INPUT");
-  const [modelId, setModelId] = useState(models.length > 0 ? models[0].id : "");
-  const [originalPrompt, setOriginalPrompt] = useState("");
+  // Determine initial stage based on resume data
+  const getInitialStage = (): WizardStage => {
+    if (!resumeData) return "INPUT";
+    if (resumeData.answers && Object.keys(resumeData.answers).length > 0) return "GENERATING";
+    if (resumeData.questions.length > 0) return "INTERVIEW";
+    return "INPUT";
+  };
+
+  // State — initialized from resumeData if available
+  const [stage, setStage] = useState<WizardStage>(getInitialStage);
+  const [modelId, setModelId] = useState(resumeData?.modelId || (models.length > 0 ? models[0].id : ""));
+  const [originalPrompt, setOriginalPrompt] = useState(resumeData?.originalPrompt || "");
   
-  const [promptId, setPromptId] = useState("");
-  const [intent, setIntent] = useState("");
-  const [questions, setQuestions] = useState<{id: string, text: string}[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [promptId, setPromptId] = useState(resumeData?.promptId || "");
+  const [intent, setIntent] = useState(resumeData?.intent || "");
+  const [questions, setQuestions] = useState<{id: string, text: string}[]>(resumeData?.questions || []);
+  const [answers, setAnswers] = useState<Record<string, string>>(resumeData?.answers || {});
   
-  const [feedbackHistory, setFeedbackHistory] = useState<string[]>([]);
+  const [feedbackHistory, setFeedbackHistory] = useState<string[]>(resumeData?.feedbackHistory || []);
   const [currentFeedback, setCurrentFeedback] = useState("");
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
   
@@ -31,6 +41,35 @@ export default function PromptWizard({ models }: { models: any[] }) {
     api: "/api/refine",
     streamProtocol: "text",
   });
+
+  // Auto-trigger generation when resuming with answers
+  useEffect(() => {
+    if (resumeData && stage === "GENERATING" && !hasResumed.current) {
+      hasResumed.current = true;
+      triggerGeneration();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const triggerGeneration = async () => {
+    const res = await submitAnswersAndGetPromptData(promptId, answers);
+    if (res.error || !res.prompt) {
+      setErrorMsg(res.error || "Failed to load answers.");
+      setStage("INTERVIEW");
+      return;
+    }
+
+    setCompletion("");
+    await complete(originalPrompt, {
+      body: {
+        intent,
+        answers: res.prompt.answers,
+        previousFeedback: feedbackHistory,
+      },
+    });
+
+    setStage("REVIEW");
+  };
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
